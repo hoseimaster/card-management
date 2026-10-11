@@ -9,7 +9,7 @@
     />
     <title>カードアルバム</title>
     <link rel="icon" href="./assets/favicon.svg" />
-    <link rel="stylesheet" href="./assets/style.css?v=20261011-id-help" />
+    <link rel="stylesheet" href="./assets/style.css?v=20261011-efficient" />
     <link
       rel="stylesheet"
       href="./assets/dropdowns.css?v=20261011-ui-contact"
@@ -23,7 +23,8 @@
     <script defer src="./assets/vendor/supabase.js"></script>
     <script defer src="./assets/config.js"></script>
     <script defer src="./assets/site-info.js?v=20261011-ui-contact"></script>
-    <script defer src="./assets/app-title-fix.js?v=20261011-official-slide"></script>
+    <script defer src="./assets/catalog-cache.js?v=20261011-efficient"></script>
+    <script defer src="./assets/app-title-fix.js?v=20261011-efficient"></script>
     <script defer src="./assets/dropdowns.js?v=20261011-ui-contact"></script>
     <style id="header-tag-correction">
       /* ヘッダー・タグ修正。既存CSSの後に読み込みます。 */
@@ -124,6 +125,9 @@
           <button data-game="aikatsu" aria-pressed="false">アイカツ！</button>
           <button data-game="aipri" aria-pressed="false">アイプリ</button>
         </div>
+        <button id="ownership-export-open" type="button" hidden>
+          所持状況を出力
+        </button>
         <button id="probability-open" hidden>確率確認</button>
         <button id="probability-back" hidden>アルバム表示</button>
         <button id="album-id-open" type="button">アルバムID</button>
@@ -1075,7 +1079,9 @@
           ></output>
           <p id="auth-result-text" role="status"></p>
           <p id="auth-result-retention" class="account-retention-note" hidden>
-            <strong>パスワードを忘れた場合、再設定やアカウントの復旧はできません。</strong><br />
+            <strong
+              >パスワードを忘れた場合、再設定やアカウントの復旧はできません。</strong
+            ><br />
             アルバムIDとパスワードを、安全な場所に保存してください。<br /><br />
             2か月間ログイン・利用がないと、アカウントと所持記録を自動削除します。削除されたIDは再利用できません。
           </p>
@@ -1802,5 +1808,40 @@
         アルバムIDだけでは本人確認ができません。パスワードが見つからない場合は、新しいアルバムを作成してください。以前の所持記録は引き継げません。
       </p>
     </dialog>
+    <dialog
+      id="ownership-export-dialog"
+      aria-labelledby="ownership-export-title"
+    >
+      <div class="modal-top">
+        <h2 id="ownership-export-title">所持カードを画像にまとめる</h2>
+        <button id="ownership-export-close" type="button" aria-label="閉じる">
+          ×
+        </button>
+      </div>
+      <label class="export-series-label"
+        >出力する弾数<select id="ownership-export-series"></select
+      ></label>
+      <button id="ownership-export-create" class="primary" type="button">
+        一覧画像を作成
+      </button>
+      <p id="ownership-export-status" role="status"></p>
+      <img
+        id="ownership-export-preview"
+        alt="所持カード一覧の出力画像"
+        hidden
+      />
+      <div id="ownership-export-actions" class="export-actions" hidden>
+        <button id="ownership-export-download" type="button">画像を保存</button
+        ><button id="ownership-export-share" class="primary" type="button">
+          共有</button
+        ><button id="ownership-export-copy" type="button">
+          共有文をコピー
+        </button>
+      </div>
+    </dialog>
+    <script
+      defer
+      src="./assets/ownership-export.js?v=20261011-efficient"
+    ></script>
   </body>
 </html>
