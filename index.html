@@ -9,12 +9,13 @@
 <link href="./assets/favicon.svg" rel="icon"/>
 <link href="./assets/style.css?v=20261012-manual-db" rel="stylesheet"/>
 <link href="./assets/dropdowns.css?v=20261012-manual-db" rel="stylesheet"/>
-<script src="./assets/startup-cards.js?v=20261012-preview-characters"></script>
+<script src="./assets/startup-cards.js?v=20261012-maintenance"></script>
 <script defer="" src="./assets/vendor/supabase.js?v=20261012-manual-db"></script>
 <script defer="" src="./assets/config.js?v=20261012-manual-db"></script>
 <script defer="" src="./assets/site-info.js?v=20261012-manual-db"></script>
 <script defer="" src="./assets/catalog-cache.js?v=20261012-manual-db"></script>
-<script defer="" src="./assets/app-title-fix.js?v=20261012-preview-characters"></script>
+<script defer src="./assets/maintenance.js?v=20261012-maintenance"></script>
+<script defer="" src="./assets/app-title-fix.js?v=20261012-maintenance"></script>
 <script defer="" src="./assets/dropdowns.js?v=20261012-manual-db"></script>
 <style id="header-tag-correction">
       /* ヘッダー・タグ修正。既存CSSの後に読み込みます。 */
@@ -89,6 +90,7 @@
     </style>
 <link href="./assets/card-columns.css?v=20261012-manual-db" rel="stylesheet"/>
 <script defer="" src="./assets/card-columns.js?v=20261012-manual-db"></script>
+<link rel="stylesheet" href="./assets/maintenance.css?v=20261012-maintenance"/>
 </head>
 <body>
 <header>
@@ -127,6 +129,17 @@
 </div>
 <script>window.CARD_STARTUP_PREVIEW.paint(document.getElementById("auth-art"));</script>
 <div class="auth-panel">
+<section id="maintenance-panel" class="maintenance-panel" hidden aria-live="polite">
+<span class="maintenance-symbol" aria-hidden="true">✦</span>
+<p class="maintenance-kicker">CARD ALBUM</p>
+<h2>メンテナンス中</h2>
+<p id="maintenance-message">ただ今システムのメンテナンスをしていますので、アルバムを開けません。</p>
+<div class="maintenance-schedule"><span>メンテナンス終了予定</span><strong id="maintenance-end">未定</strong></div>
+<p class="maintenance-wait">流れてくるカードを眺めて、<br/>今しばらくお待ちください。</p>
+<button class="text-button" id="maintenance-refresh" type="button">状況を確認する</button>
+<p id="maintenance-check-message" role="status"></p>
+</section>
+<div id="auth-normal-panel">
 <h2>カードアルバムへようこそ</h2>
 <div class="tabs">
 <button class="active" id="login-tab">ログイン</button><button id="signup-tab">新規登録</button>
@@ -204,6 +217,7 @@
 <form hidden="" id="password-form">
 <label>新しいパスワード<input autocomplete="new-password" id="new-password" minlength="8" required="" type="password"/></label><button class="primary">パスワードを変更</button>
 </form>
+</div>
 </div>
 </section>
 <section class="auth-result" hidden="" id="auth-result">
