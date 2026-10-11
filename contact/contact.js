@@ -4,10 +4,17 @@ const contactDB = window.supabase.createClient(
   window.APP_CONFIG.supabaseUrl,
   window.APP_CONFIG.supabaseKey,
 );
+let contactIdentityGeneration = 0;
+let resolvedContactUser = null;
 async function updateContactIdentity() {
-  const { data } = await contactDB.auth.getSession();
+  const generation = ++contactIdentityGeneration;
+  const { data, error: sessionError } = await contactDB.auth.getSession();
+  if (generation !== contactIdentityGeneration) return;
+  if (sessionError) throw sessionError;
   contactSession = data.session;
-  contactAlbumID = "";
+  const uid = contactSession?.user.id || null;
+  const needsIdentity = uid && (uid !== resolvedContactUser || !contactAlbumID);
+  if (uid !== resolvedContactUser) contactAlbumID = "";
   const email = document.getElementById("contact-email");
   email.closest("label").hidden = !!contactSession;
   email.required = !contactSession;
@@ -15,15 +22,26 @@ async function updateContactIdentity() {
   document.getElementById("contact-album-id").textContent = contactSession
     ? "確認中…"
     : "";
-  if (contactSession) {
+  if (needsIdentity) {
     const { data: id, error } = await contactDB.rpc("card_album_my_id");
-    if (!error && typeof id === "string") contactAlbumID = id;
+    if (generation !== contactIdentityGeneration) return;
+    if (!error && typeof id === "string") {
+      contactAlbumID = id;
+      resolvedContactUser = uid;
+    }
     document.getElementById("contact-album-id").textContent =
       contactAlbumID || "IDを確認できませんでした";
   }
+  if (!needsIdentity)
+    document.getElementById("contact-album-id").textContent = contactSession
+      ? contactAlbumID
+      : "";
+  if (!contactSession) resolvedContactUser = null;
 }
-const contactIdentityReady = updateContactIdentity();
-contactDB.auth.onAuthStateChange(() => setTimeout(updateContactIdentity, 0));
+const contactIdentityReady = updateContactIdentity().catch(() => {});
+contactDB.auth.onAuthStateChange(() =>
+  setTimeout(() => updateContactIdentity().catch(() => {}), 0),
+);
 const $ = (id) => document.getElementById(id);
 $("contact-form").onsubmit = async (event) => {
   event.preventDefault();
