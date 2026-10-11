@@ -111,11 +111,11 @@
     </style>
     <link
       rel="stylesheet"
-      href="./assets/card-columns.css?v=20261011-mobile-columns"
+      href="./assets/card-columns.css?v=20261011-layout-three-default"
     />
     <script
       defer
-      src="./assets/card-columns.js?v=20261011-mobile-columns"
+      src="./assets/card-columns.js?v=20261011-layout-three-default"
     ></script>
   </head>
   <body>
@@ -1188,6 +1188,7 @@
               <span class="progress-chevron" aria-hidden="true"></span>
             </button>
           </div>
+          <div id="filtered-rate" aria-live="polite"></div>
         </div>
         <div id="series-progress" class="series-progress" hidden></div>
         <details id="filter-panel" class="filter-panel">
@@ -1231,34 +1232,34 @@
         </div>
         <div class="results-heading">
           <h2 id="result-count"></h2>
-          <div class="results-controls">
-            <span id="filtered-rate"></span
-            ><label class="display-count"
-              >表示件数<select id="page-size" aria-label="一覧の表示件数">
+          <div class="results-controls card-display-toolbar">
+            <label class="display-count">
+              <span class="display-control-label">表示件数</span>
+              <select id="page-size" aria-label="一覧の表示件数">
                 <option value="20">20枚</option>
                 <option value="50">50枚</option>
                 <option value="100">100枚</option>
                 <option value="all">すべて</option>
-              </select></label
+              </select>
+            </label>
+            <div
+              class="mobile-column-control"
+              role="group"
+              aria-label="カード一覧の列数"
             >
+              <span class="mobile-column-label">カードの並び</span>
+              <div class="mobile-column-buttons">
+                <button type="button" data-card-columns="2" aria-pressed="false">
+                  2列
+                </button>
+                <button type="button" data-card-columns="3" aria-pressed="true">
+                  3列
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-        <div
-          class="mobile-column-control"
-          role="group"
-          aria-label="カード一覧の列数"
-        >
-          <span class="mobile-column-label">カードの並び</span>
-          <div class="mobile-column-buttons">
-            <button type="button" data-card-columns="2" aria-pressed="true">
-              2列
-            </button>
-            <button type="button" data-card-columns="3" aria-pressed="false">
-              3列
-            </button>
-          </div>
-        </div>
-        <div id="cards" class="card-grid"></div>
+        <div id="cards" class="card-grid" data-mobile-columns="3"></div>
         <p id="empty" hidden>
           見つかりませんでした。条件を変えて探してみてください。
         </p>
