@@ -476,9 +476,16 @@ function art() {
   for (const g of ["aikatsu", "aipri"]) {
     const available=catalog.cards.filter(c=>c.game===g&&isOfficialMarqueeCard(c));
     let picks=available.slice(0,2);
+    if(g==="aikatsu") {
+      const preferred=window.CARD_STARTUP_PREVIEW?.preferredAikatsu||["aikatsu:E1-01_PR","aikatsu:E1-83_N"];
+      picks=["いちご","パリン"].map((character,index)=>{
+        const pool=available.filter(c=>(c.character||"").includes(character));
+        return pool.find(c=>c.id===preferred[index])||pool[0];
+      }).filter(Boolean);
+    }
     if(g==="aipri") {
-      const preferred=window.CARD_STARTUP_PREVIEW?.preferredAipri||["aipri:OA4-001","aipri:OA4-002"];
-      picks=["いのり","あおい"].map((character,index)=>{
+      const preferred=window.CARD_STARTUP_PREVIEW?.preferredAipri||["aipri:OA4-001","aipri:OA4-005"];
+      picks=["いのり","ナナ"].map((character,index)=>{
         const pool=available.filter(c=>c.family==="おねがい"&&c.character===character&&/[★☆]\s*[4４]|4つ星/.test(c.rarity||""));
         return pool.find(c=>c.id===preferred[index])||pool.sort((a,b)=>String(b.code).localeCompare(String(a.code),"en",{numeric:true}))[0];
       }).filter(Boolean);
