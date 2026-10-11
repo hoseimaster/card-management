@@ -473,17 +473,25 @@ async function loadAdminOverrides() {
 }
 function art() {
   updateHeader();
-  for (const g of ["aikatsu", "aipri"])
-    if (!$(g + "-art").childElementCount)
-      $(g + "-art").innerHTML = catalog.cards
-        .filter((c) => c.game === g)
-        .slice(0, 2)
-        .map(
-          (c) => `<img src="${esc(c.front)}" alt="${esc(c.name || c.code)}">`,
-        )
-        .join("");
+  for (const g of ["aikatsu", "aipri"]) {
+    const available=catalog.cards.filter(c=>c.game===g&&isOfficialMarqueeCard(c));
+    let picks=available.slice(0,2);
+    if(g==="aipri") {
+      const preferred=window.CARD_STARTUP_PREVIEW?.preferredAipri||["aipri:OA4-001","aipri:OA4-002"];
+      picks=["いのり","あおい"].map((character,index)=>{
+        const pool=available.filter(c=>c.family==="おねがい"&&c.character===character&&/[★☆]\s*[4４]|4つ星/.test(c.rarity||""));
+        return pool.find(c=>c.id===preferred[index])||pool.sort((a,b)=>String(b.code).localeCompare(String(a.code),"en",{numeric:true}))[0];
+      }).filter(Boolean);
+    }
+    if(!picks.length)continue;
+    const root=$(g+"-art");
+    if(root.dataset.cards===picks.map(c=>c.id+"|"+c.front).join(","))continue;
+    root.dataset.cards=picks.map(c=>c.id+"|"+c.front).join(",");
+    root.innerHTML=picks.map(c=>`<img src="${esc(c.front)}" alt="${esc(c.name||c.code)}（${esc(c.character||c.code)}）" loading="eager" decoding="async">`).join("");
+  }
   buildMarquee();
 }
+
 function chooseGame(g) {
   if (!session) return;
   closeMenu();
@@ -835,7 +843,7 @@ function openDetail(id, trigger, navigating = false) {
     detailCardIds = [...new Set(candidates)];
     if (!detailCardIds.includes(id)) detailCardIds = [id];
   }
-  selected = catalog.cards.find((c) => c.id === id);
+  selected = catalog.cards.find((c) => c.id === id) || window.CARD_STARTUP_PREVIEW?.cards.find(c => c.id === id);
   if (!selected) return;
   if (!navigating) lastFocus = trigger;
   side = 0;
@@ -1735,6 +1743,7 @@ function commitMarqueeCard(index, entry) {
   if (!marqueeOutside(pair)) return false;
   for (const button of pair) {
     button.dataset.preview = entry.card.id;
+    button.dataset.game = entry.card.game;
     button.setAttribute(
       "aria-label",
       (entry.card.name || entry.card.code) + "の詳細",
@@ -1799,7 +1808,7 @@ function pumpMarquee() {
       continue;
     }
     if (loading >= 6 || !marqueeOutside(pair)) continue;
-    const primary = index % 2 ? "aipri" : "aikatsu";
+    const primary = pair[0].dataset.game || (index % 2 ? "aipri" : "aikatsu");
     let card =
       nextMarqueeCard(primary) ||
       nextMarqueeCard(primary === "aipri" ? "aikatsu" : "aipri");
@@ -1849,7 +1858,7 @@ $("auth-art").addEventListener(
     if (!image.matches?.(".marquee-card img")) return;
     const card = catalog.cards.find(
       (c) => c.id === image.closest(".marquee-card").dataset.preview,
-    );
+    ) || window.CARD_STARTUP_PREVIEW?.cards.find(c=>c.id===image.closest(".marquee-card").dataset.preview);
     prepareMarqueeImage(image, card);
   },
   true,
@@ -1858,7 +1867,8 @@ function buildMarquee() {
   const groups = $("auth-art").querySelectorAll(".marquee-group");
   if (groups.length !== 2) return;
   if (!marqueeBootstrapped) {
-    const pools = { aikatsu: shuffleCards(catalog.cards.filter(c => c.game === "aikatsu" && isOfficialMarqueeCard(c))), aipri: shuffleCards(catalog.cards.filter(c => c.game === "aipri" && isOfficialMarqueeCard(c))) };
+    const displayCards = catalog.cards.length ? catalog.cards : (window.CARD_STARTUP_PREVIEW?.cards || []);
+    const pools = { aikatsu: shuffleCards(displayCards.filter(c => c.game === "aikatsu" && isOfficialMarqueeCard(c))), aipri: shuffleCards(displayCards.filter(c => c.game === "aipri" && isOfficialMarqueeCard(c))) };
     if (!pools.aikatsu.length && !pools.aipri.length) return;
     const initial = [];
     for (let i = 0; i < 16; i++) {
@@ -1866,7 +1876,7 @@ function buildMarquee() {
       const fallback = pools[i % 2 ? "aikatsu" : "aipri"];
       initial.push((pool.length ? pool : fallback)[Math.floor(i / 2) % (pool.length || fallback.length)]);
     }
-    groups[0].innerHTML = initial.map(c => `<button class="marquee-card" data-preview="${esc(c.id)}" aria-label="${esc(c.name || c.code)}の詳細"><span class="marquee-image-frame"><img src="${esc(c.front)}" alt="${esc(c.name || c.code)}" decoding="async"></span></button>`).join("");
+    if (!groups[0].childElementCount) groups[0].innerHTML = shuffleCards(initial).map(c => `<button class="marquee-card" data-preview="${esc(c.id)}" data-game="${esc(c.game)}" aria-label="${esc(c.name || c.code)}の詳細"><span class="marquee-image-frame"><img src="${esc(c.front)}" alt="${esc(c.name || c.code)}" decoding="async"></span></button>`).join("");
     const cards = [...groups[0].children];
     groups[0].replaceChildren(...cards);
     groups[1].replaceChildren(
@@ -1884,7 +1894,7 @@ function buildMarquee() {
     .forEach((image) => {
       const card = catalog.cards.find(
         (c) => c.id === image.closest(".marquee-card").dataset.preview,
-      );
+      ) || window.CARD_STARTUP_PREVIEW?.cards.find(c=>c.id===image.closest(".marquee-card").dataset.preview);
       prepareMarqueeImage(image, card);
     });
   // 読み込み完了時点から、画像を先読みして画面外のカードを交換する。
