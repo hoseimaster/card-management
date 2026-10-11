@@ -32,7 +32,7 @@
     ></script>
     <script
       defer
-      src="./assets/app-title-fix.js?v=20261011-self-delete"
+      src="./assets/app-title-fix.js?v=20261011-nickname-eight"
     ></script>
     <script
       defer
@@ -109,6 +109,14 @@
         }
       }
     </style>
+    <link
+      rel="stylesheet"
+      href="./assets/card-columns.css?v=20261011-mobile-columns"
+    />
+    <script
+      defer
+      src="./assets/card-columns.js?v=20261011-mobile-columns"
+    ></script>
   </head>
   <body>
     <header>
@@ -1028,7 +1036,7 @@
                 >ニックネーム<input
                   id="nickname"
                   type="text"
-                  maxlength="20"
+                  maxlength="16"
                   autocomplete="nickname"
                   placeholder="アルバムに表示する名前"
                   aria-describedby="nickname-error" /><span
@@ -1235,6 +1243,21 @@
             >
           </div>
         </div>
+        <div
+          class="mobile-column-control"
+          role="group"
+          aria-label="カード一覧の列数"
+        >
+          <span class="mobile-column-label">カードの並び</span>
+          <div class="mobile-column-buttons">
+            <button type="button" data-card-columns="2" aria-pressed="true">
+              2列
+            </button>
+            <button type="button" data-card-columns="3" aria-pressed="false">
+              3列
+            </button>
+          </div>
+        </div>
         <div id="cards" class="card-grid"></div>
         <p id="empty" hidden>
           見つかりませんでした。条件を変えて探してみてください。
@@ -1333,10 +1356,10 @@
             id="profile-nickname"
             type="text"
             autocomplete="nickname"
-            maxlength="20"
+            maxlength="16"
             required
         /></label>
-        <small class="nickname-help">1〜20文字。あとから変更できます。</small>
+        <small class="nickname-help">2〜8文字。あとから変更できます。</small>
         <p id="nickname-message" role="status"></p>
         <div class="nickname-actions">
           <button id="nickname-cancel" type="button">閉じる</button
