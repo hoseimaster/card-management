@@ -3,7 +3,16 @@ let contactAlbumID = "";
 const contactDB = window.supabase.createClient(
   window.APP_CONFIG.supabaseUrl,
   window.APP_CONFIG.supabaseKey,
+  { global: { fetch: window.CARD_MAINTENANCE.fetch } },
 );
+let maintenanceRedirecting = false;
+window.CARD_MAINTENANCE.subscribe(async status => {
+  if (!status.maintenance || maintenanceRedirecting) return;
+  maintenanceRedirecting = true;
+  try { await contactDB.auth.signOut({ scope: "local" }); }
+  finally { location.replace("../index.html"); }
+});
+window.CARD_MAINTENANCE.check().catch(() => {});
 let contactIdentityGeneration = 0;
 let resolvedContactUser = null;
 async function updateContactIdentity() {
