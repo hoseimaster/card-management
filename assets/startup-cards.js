@@ -3,6 +3,56 @@
 window.CARD_STARTUP_PREVIEW = Object.freeze({
   cards: [
   {
+    "id": "aikatsu:E1-01_PR",
+    "code": "E1-01",
+    "name": "オーロラキスキャミソール",
+    "game": "aikatsu",
+    "character": "星宮いちご",
+    "rarity": "PR",
+    "front": "https://dcd.aikatsu.com/encore/images/cardlist/card/E1-01_PR.webp",
+    "back": "https://dcd.aikatsu.com/encore/images/cardlist/card/E1-01_PR_b.webp",
+    "source": "https://dcd.aikatsu.com/encore/cardlist/?search=true&series=629001&display=1&sort=1&brand=%E3%82%A8%E3%83%B3%E3%82%B8%E3%82%A7%E3%83%AA%E3%83%BC%E3%82%B7%E3%83%A5%E3%82%AC%E3%83%BC",
+    "series": [
+      "1弾"
+    ],
+    "type": [
+      "キュート"
+    ],
+    "category": [
+      "トップス"
+    ],
+    "brand": [
+      "エンジェリーシュガー"
+    ],
+    "songs": [],
+    "variant": "通常"
+  },
+  {
+    "id": "aikatsu:E1-83_N",
+    "code": "E1-83",
+    "name": "イエローブロッサムトップス",
+    "game": "aikatsu",
+    "character": "和央パリン",
+    "rarity": "N",
+    "front": "https://dcd.aikatsu.com/encore/images/cardlist/card/E1-83_N.webp",
+    "back": "https://dcd.aikatsu.com/encore/images/cardlist/card/E1-83_N_b.webp",
+    "source": "https://dcd.aikatsu.com/encore/cardlist/?search=true&series=629001&display=1&sort=1&brand=%E3%83%8E%E3%83%BC%E3%83%96%E3%83%A9%E3%83%B3%E3%83%89",
+    "series": [
+      "1弾"
+    ],
+    "type": [
+      "ポップ"
+    ],
+    "category": [
+      "トップス"
+    ],
+    "brand": [
+      "ノーブランド"
+    ],
+    "songs": [],
+    "variant": "通常"
+  },
+  {
     "id": "aikatsu:E1-36_PR",
     "code": "E1-36",
     "name": "天の川コズミックカチューシャ",
@@ -153,56 +203,6 @@ window.CARD_STARTUP_PREVIEW = Object.freeze({
     "variant": "通常"
   },
   {
-    "id": "aikatsu:EP-038_N",
-    "code": "EP-038",
-    "name": "ブルーワークブーツ",
-    "game": "aikatsu",
-    "character": "霧矢あおい",
-    "rarity": "N",
-    "front": "https://dcd.aikatsu.com/encore/images/cardlist/card/EP-038_N.webp",
-    "back": "https://dcd.aikatsu.com/encore/images/cardlist/card/EP-038_N_b.webp",
-    "source": "https://dcd.aikatsu.com/encore/cardlist/?search=true&series=629901&display=1&sort=1&brand=%E3%83%8E%E3%83%BC%E3%83%96%E3%83%A9%E3%83%B3%E3%83%89",
-    "series": [
-      "プロモーションカード"
-    ],
-    "type": [
-      "キュート"
-    ],
-    "category": [
-      "シューズ"
-    ],
-    "brand": [
-      "ノーブランド"
-    ],
-    "songs": [],
-    "variant": "通常"
-  },
-  {
-    "id": "aikatsu:E1-23_N",
-    "code": "E1-23",
-    "name": "ピンクステージシューズ",
-    "game": "aikatsu",
-    "character": "星宮いちご",
-    "rarity": "N",
-    "front": "https://dcd.aikatsu.com/encore/images/cardlist/card/E1-23_N.webp",
-    "back": "https://dcd.aikatsu.com/encore/images/cardlist/card/E1-23_N_b.webp",
-    "source": "https://dcd.aikatsu.com/encore/cardlist/?search=true&series=629001&display=1&sort=1&brand=%E3%83%8E%E3%83%BC%E3%83%96%E3%83%A9%E3%83%B3%E3%83%89",
-    "series": [
-      "1弾"
-    ],
-    "type": [
-      "キュート"
-    ],
-    "category": [
-      "シューズ"
-    ],
-    "brand": [
-      "ノーブランド"
-    ],
-    "songs": [],
-    "variant": "通常"
-  },
-  {
     "id": "aipri:OA4-001",
     "code": "OA4-001",
     "name": "スマイルハートバズリウムピンク",
@@ -212,6 +212,27 @@ window.CARD_STARTUP_PREVIEW = Object.freeze({
     "rarity": "★4",
     "front": "https://aipri.jp/card/img/oa4/OA4-001_O.webp",
     "back": "https://aipri.jp/card/img/oa4/OA4-001_U.webp",
+    "source": "https://aipri.jp/card/oa4.html",
+    "series": [
+      "【おねがいアイプリ 4だん】"
+    ],
+    "type": [],
+    "category": [],
+    "brand": [],
+    "songs": [
+      "ポップにいこ～ん！"
+    ]
+  },
+  {
+    "id": "aipri:OA4-005",
+    "code": "OA4-005",
+    "name": "スマイルハートバズリウムレッド",
+    "game": "aipri",
+    "family": "おねがい",
+    "character": "ナナ",
+    "rarity": "★4",
+    "front": "https://aipri.jp/card/img/oa4/OA4-005_O.webp",
+    "back": "https://aipri.jp/card/img/oa4/OA4-005_U.webp",
     "source": "https://aipri.jp/card/oa4.html",
     "series": [
       "【おねがいアイプリ 4だん】"
@@ -348,30 +369,10 @@ window.CARD_STARTUP_PREVIEW = Object.freeze({
     "songs": [
       "Ring Ring Ring feat. ひまり"
     ]
-  },
-  {
-    "id": "aipri:APR1-011",
-    "code": "APR1-011",
-    "name": "きらきらくらげピュアホワイト",
-    "game": "aipri",
-    "family": "ひみつ",
-    "character": "つむぎ（プリンセスver.)",
-    "rarity": "★4",
-    "front": "https://aipri.jp/himitsu/card/img/ring1/APR1-011_O.webp",
-    "back": "https://aipri.jp/himitsu/card/img/ring1/APR1-011_U.webp",
-    "source": "https://aipri.jp/himitsu/card/ring1.html",
-    "series": [
-      "【リング1だん】"
-    ],
-    "type": [],
-    "category": [],
-    "brand": [],
-    "songs": [
-      "We're The World"
-    ]
   }
 ],
-  preferredAipri: ["aipri:OA4-001","aipri:OA4-002"],
+  preferredAipri: ["aipri:OA4-001","aipri:OA4-005"],
+  preferredAikatsu: ["aikatsu:E1-01_PR","aikatsu:E1-83_N"],
   paint(root) {
     if (!root) return;
     const shuffled = [...this.cards];
