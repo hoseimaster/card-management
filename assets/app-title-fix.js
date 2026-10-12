@@ -1,3 +1,208 @@
+// コーデ定義・APは既存の公開カタログ内から取得。追加のDB通信は行わない。
+const coordinateStylesheetURL = new URL(
+  "./aikatsu-coordinates.css?v=20261012-coordinate-display",
+  document.currentScript?.src || location.href,
+).href;
+let coordinatePanel = null;
+let coordinateSeries = "all";
+let coordinateRenderKey = "";
+let coordinateExcludeSingle = false;
+let backToTopButton = null;
+
+function ensureCoordinateStyles() {
+  if (document.getElementById("coordinate-stylesheet")) return;
+  const link = document.createElement("link");
+  link.id = "coordinate-stylesheet";
+  link.rel = "stylesheet";
+  link.href = coordinateStylesheetURL;
+  document.head.append(link);
+}
+
+function syncBackToTop() {
+  ensureCoordinateStyles();
+  if (!backToTopButton) {
+    backToTopButton = document.createElement("button");
+    backToTopButton.id = "album-back-to-top";
+    backToTopButton.type = "button";
+    backToTopButton.className = "album-back-to-top";
+    backToTopButton.setAttribute("aria-label", "ページ上部に戻る");
+    backToTopButton.title = "ページ上部に戻る";
+    backToTopButton.innerHTML = '<span aria-hidden="true">↑</span>';
+    backToTopButton.hidden = true;
+    backToTopButton.addEventListener("click", () => {
+      window.scrollTo({
+        top: 0,
+        behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth",
+      });
+    });
+    document.body.append(backToTopButton);
+    let scheduled = false;
+    window.addEventListener("scroll", () => {
+      if (scheduled) return;
+      scheduled = true;
+      requestAnimationFrame(() => {
+        scheduled = false;
+        syncBackToTop();
+      });
+    }, { passive: true });
+  }
+  const visibleAlbum = document.querySelector(
+    "#collection:not([hidden]), #probabilities:not([hidden])",
+  );
+  backToTopButton.hidden = !visibleAlbum || window.scrollY < 320;
+}
+
+function isSingleFullCoordinate(group) {
+  return group.total === 1 && group.members.length === 1 &&
+    values(group.members[0]?.category).includes("フルコーデ");
+}
+
+function cardAP(card) {
+  const ap = card?.ap;
+  return typeof ap === "number" && Number.isInteger(ap) && ap >= 0
+    ? ap
+    : null;
+}
+
+function coordinateGroups(cards, ownership, ready, series = "all") {
+  const byID = new Map(cards.map((card) => [card.id, card]));
+  const definitions = new Map();
+  for (const card of cards) {
+    for (const definition of values(card.coordinateDefinitions)) {
+      if (
+        !definition ||
+        typeof definition.id !== "string" ||
+        !Array.isArray(definition.cardIds) ||
+        definition.cardIds.length > 4
+      ) continue;
+      definitions.set(definition.id, definition);
+    }
+  }
+  return [...definitions.values()]
+    .sort((a, b) => a.id.localeCompare(b.id))
+    .filter((definition) =>
+      series === "all" || values(definition.series).includes(series),
+    )
+    .map((definition) => {
+      const ids = [...new Set(definition.cardIds)].slice(0, 4);
+      const members = ids.map((id) => byID.get(id) || null);
+      const missing = values(definition.missingParts).slice(0, 4 - ids.length);
+      const total = ids.length + missing.length;
+      const got = ready ? ids.filter((id) => ownership.has(id)).length : 0;
+      const complete = ready && total > 0 && got === total && members.every(Boolean);
+      const allAPKnown = missing.length === 0 && members.every((card) => cardAP(card) !== null);
+      const ap = allAPKnown ? members.reduce((sum, card) => sum + cardAP(card), 0) : null;
+      const acquiredAP = ready
+        ? members.reduce((sum, card) => sum + (card && ownership.has(card.id) ? cardAP(card) || 0 : 0), 0)
+        : null;
+      return { ...definition, members, missing, total, got, complete, ap, acquiredAP };
+    });
+}
+
+function mountCoordinatePanel() {
+  if (coordinatePanel?.isConnected) return coordinatePanel;
+  const collection = $("collection");
+  if (!collection) return null;
+  ensureCoordinateStyles();
+  coordinatePanel = document.createElement("details");
+  coordinateRenderKey = "";
+  coordinatePanel.id = "coordinate-panel";
+  coordinatePanel.className = "coordinate-panel";
+  coordinatePanel.innerHTML = `
+    <summary><span class="coordinate-summary-title">コーデ収集状況</span>
+      <span id="coordinate-summary-count" class="coordinate-summary-count"></span>
+      <span class="coordinate-chevron" aria-hidden="true"></span></summary>
+    <div class="coordinate-body">
+      <div class="coordinate-toolbar"><label for="coordinate-series">弾数</label>
+        <select id="coordinate-series" aria-label="コーデの弾数"><option value="all">すべて</option></select>
+        <span id="coordinate-visible-count" role="status"></span></div>
+      <div class="coordinate-options"><button id="coordinate-exclude-single" type="button" aria-pressed="false">1枚フルコーデを除く</button></div>
+      <div id="coordinate-list" class="coordinate-list"></div>
+      <p id="coordinate-empty" class="coordinate-empty" hidden>この弾のコーデ情報はまだ登録されていません。</p>
+      <p class="coordinate-footnote">合計APは各カード1枚分の合計です。ゲーム内のボーナスは含みません。</p>
+    </div>`;
+  const anchor = collection.querySelector(".pagination") || $("cards");
+  if (anchor) anchor.after(coordinatePanel);
+  else collection.append(coordinatePanel);
+  coordinatePanel.addEventListener("toggle", () => {
+    if (coordinatePanel.open) renderCoordinates();
+  });
+  $("coordinate-series").addEventListener("change", () => {
+    coordinateSeries = $("coordinate-series").value;
+    renderCoordinates();
+  });
+  $("coordinate-list").addEventListener("click", (event) => {
+    const trigger = event.target.closest("[data-coordinate-card]");
+    if (trigger) openDetail(trigger.dataset.coordinateCard, trigger);
+  });
+  $("coordinate-list").addEventListener("load", (event) => {
+    const image = event.target;
+    if (!image.matches?.(".coordinate-card-image img")) return;
+    image.parentElement.classList.toggle("is-landscape", image.naturalWidth > image.naturalHeight);
+  }, true);
+  $("coordinate-exclude-single").addEventListener("click", () => {
+    coordinateExcludeSingle = !coordinateExcludeSingle;
+    renderCoordinates();
+  });
+  return coordinatePanel;
+}
+
+function renderCoordinates() {
+  syncBackToTop();
+  if (game !== "aikatsu") {
+    if (coordinatePanel) coordinatePanel.hidden = true;
+    return;
+  }
+  const panel = mountCoordinatePanel();
+  if (!panel) return;
+  panel.hidden = false;
+  const cards = catalog.cards.filter((card) => card.game === "aikatsu");
+  const all = coordinateGroups(cards, owned, ownershipReady);
+  const eligible = all.filter((group) => !coordinateExcludeSingle || !isSingleFullCoordinate(group));
+  $("coordinate-summary-count").textContent = ownershipReady
+    ? `${eligible.filter((group) => group.complete).length} / ${eligible.length}コーデ`
+    : "所持データを確認中";
+  if (!panel.open) return; // 畳まれた状態ではカード画像を生成・読み込みしない。
+  const labels = [...new Set(all.flatMap((group) => values(group.series)))].sort((a, b) =>
+    seriesRank(a) < 0 ? (seriesRank(b) < 0 ? a.localeCompare(b, "ja") : 1)
+      : seriesRank(b) < 0 ? -1 : seriesRank(a) - seriesRank(b),
+  );
+  if (coordinateSeries !== "all" && !labels.includes(coordinateSeries)) coordinateSeries = "all";
+  const select = $("coordinate-series");
+  const optionsKey = JSON.stringify(labels);
+  if (select.dataset.optionsKey !== optionsKey) {
+    select.innerHTML = '<option value="all">すべて</option>' + labels.map((label) =>
+      `<option value="${esc(label)}">${esc(label)}</option>`,
+    ).join("");
+    select.dataset.optionsKey = optionsKey;
+  }
+  select.value = coordinateSeries;
+  $("coordinate-exclude-single").setAttribute("aria-pressed", String(coordinateExcludeSingle));
+  const groups = eligible.filter((group) => coordinateSeries === "all" || values(group.series).includes(coordinateSeries));
+  $("coordinate-visible-count").textContent = `${groups.length}コーデ`;
+  $("coordinate-empty").hidden = groups.length > 0;
+  const key = JSON.stringify([ownershipReady, coordinateSeries, coordinateExcludeSingle, groups.map((group) => [
+    group.id, group.name, group.got, group.complete, group.ap, group.missing,
+    group.members.map((card) => card ? [card.id, card.name, card.front, card.ap, owned.has(card.id)] : null),
+  ])]);
+  if (key === coordinateRenderKey) return;
+  coordinateRenderKey = key;
+  $("coordinate-list").innerHTML = groups.map((group) => `
+    <article class="coordinate-group ${group.complete ? "is-complete" : ""}">
+      <div class="coordinate-heading"><h3>${esc(group.name)}</h3>
+        <span class="coordinate-completion">${ownershipReady ? `${group.got} / ${group.total}` : "—"}${group.complete ? " 揃いました" : ""}</span></div>
+      <div class="coordinate-ap"><span>合計AP</span><strong>${group.ap === null ? "未確認" : group.ap.toLocaleString("ja-JP") + " AP"}</strong></div>
+      <div class="coordinate-cards" style="--coordinate-count:${Math.max(1, group.total)}">
+        ${group.members.map((card, index) => card ? `
+          <button type="button" class="coordinate-card ${ownershipReady && owned.has(card.id) ? "is-owned" : "is-missing"}"
+            data-coordinate-card="${esc(card.id)}" aria-label="${esc(name(card))}：${ownershipReady ? owned.has(card.id) ? "持っている" : "持っていない" : "所持状況未確認"}。詳細を開く">
+            <span class="coordinate-card-image"><img src="${esc(card.front)}" alt="${esc(name(card))}" loading="lazy" decoding="async"></span>
+          </button>` : `<div class="coordinate-placeholder"><span>カード未登録</span><small>${esc(group.cardIds[index])}</small></div>`).join("")}
+        ${group.missing.map((part) => `<div class="coordinate-placeholder"><span>${esc(part)}</span><small>カード未登録<br>AP未確認</small></div>`).join("")}
+      </div>
+    </article>`).join("");
+}
+
 const $ = (id) => document.getElementById(id),
   esc = (s) =>
     String(s ?? "").replace(
@@ -162,6 +367,7 @@ function screen(id) {
   $("menu-toggle").hidden = !session;
   closeMenu();
   updateHeader();
+  syncBackToTop();
 }
 let albumIdentity = "";
 let signupReservation = null;
@@ -776,7 +982,7 @@ function render() {
     .slice((page - 1) * size, page * size)
     .map(
       (c) =>
-        `<article class="card ${owned.has(c.id) ? "owned" : ""}">${incompleteCard(c) ? '<span class="incomplete-badge" role="img" aria-label="未取得のカード情報があります" title="未取得のカード情報があります">!</span>' : ""}${owned.has(c.id) ? `<span class="owned-badge">所持 ${quantityOf(c.id)}枚</span>` : ""}<button class="card-trigger" data-detail="${esc(c.id)}" aria-label="${esc(name(c))}の詳細"><span class="card-image-frame"><img data-card-image src="${esc(c.front)}" loading="lazy" decoding="async" alt="${esc(name(c))}"></span><span class="code">${esc(c.code)}</span><span class="card-meta"><span>${esc(c.character || "")}</span><span class="pill">${esc(displayRarity(c))}</span></span>${c.game === "aikatsu" && c.variant === "パラレル" ? '<span class="parallel-tag">パラレル</span>' : ""}<span class="card-name">${esc(name(c))}</span>${game === "aipri" ? `<span class="card-song">♪ ${esc(c.songs?.join(" ／ ") || "曲名未取得")}</span>` : ""}</button><button class="ownership-button" data-toggle="${esc(c.id)}" aria-pressed="${owned.has(c.id)}" ${!ownershipReady || saving.has(c.id) ? "disabled" : ""}>${saving.has(c.id) ? "保存中…" : owned.has(c.id) ? "✓ 持っている" : "＋ 持っていない"}</button></article>`,
+        `<article class="card ${owned.has(c.id) ? "owned" : ""}">${incompleteCard(c) ? '<span class="incomplete-badge" role="img" aria-label="未取得のカード情報があります" title="未取得のカード情報があります">!</span>' : ""}${owned.has(c.id) ? `<span class="owned-badge">所持 ${quantityOf(c.id)}枚</span>` : ""}<button class="card-trigger" data-detail="${esc(c.id)}" aria-label="${esc(name(c))}の詳細"><span class="card-image-frame"><img data-card-image src="${esc(c.front)}" loading="lazy" decoding="async" alt="${esc(name(c))}"></span><span class="code">${esc(c.code)}</span><span class="card-meta"><span>${esc(c.character || "")}</span><span class="pill">${esc(displayRarity(c))}</span></span>${c.game === "aikatsu" && c.variant === "パラレル" ? '<span class="parallel-tag">パラレル</span>' : ""}<span class="card-name">${esc(name(c))}</span>${c.game === "aikatsu" ? `<span class="card-ap">${cardAP(c) === null ? "AP未確認" : cardAP(c).toLocaleString("ja-JP") + " AP"}</span>` : ""}${game === "aipri" ? `<span class="card-song">♪ ${esc(c.songs?.join(" ／ ") || "曲名未取得")}</span>` : ""}</button><button class="ownership-button" data-toggle="${esc(c.id)}" aria-pressed="${owned.has(c.id)}" ${!ownershipReady || saving.has(c.id) ? "disabled" : ""}>${saving.has(c.id) ? "保存中…" : owned.has(c.id) ? "✓ 持っている" : "＋ 持っていない"}</button></article>`,
     )
     .join("");
   $("empty").hidden = list.length > 0;
@@ -798,6 +1004,7 @@ function render() {
   $("data-warning").textContent = errors
     ? catalog.errors[0]
     : "未登録のカード情報があります。確認できた情報から順次追加します。";
+  renderCoordinates();
   if (selected) updateModalOwnership();
   if (!$("probabilities").hidden) renderProbabilities();
   scheduleOCR();
@@ -846,7 +1053,10 @@ async function toggle(id) {
 let detailCardIds = [];
 function openDetail(id, trigger, navigating = false) {
   if (!navigating) {
-    const candidates = trigger?.closest("#auth-art")
+    const candidates = trigger?.closest("#coordinate-panel")
+      ? [...document.querySelectorAll("#coordinate-list [data-coordinate-card]")]
+          .map((button) => button.dataset.coordinateCard)
+      : trigger?.closest("#auth-art")
       ? [
           ...document.querySelectorAll(
             ".marquee-group:first-child [data-detail]",
@@ -872,6 +1082,9 @@ function openDetail(id, trigger, navigating = false) {
         `<dt>${label}</dt><dd>${esc(values(c[k]).join(" ／ ") || "未取得")}</dd>`,
     )
     .join("");
+  if (c.game === "aikatsu") {
+    $("modal-fields").innerHTML += `<dt>AP</dt><dd>${cardAP(c) === null ? "未確認" : cardAP(c).toLocaleString("ja-JP") + " AP"}</dd>`;
+  }
   $("metadata-note").hidden = true;
   $("modal-source").href = c.source;
   showSide();
