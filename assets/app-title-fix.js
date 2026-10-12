@@ -428,7 +428,8 @@ function applyPersonalMetadata() {
         .trim()
         .toUpperCase();
       if (serial.endsWith("P")) c.rarity = "パラレル";
-      else if (serial.includes("M")) c.rarity = "ミラクル";
+      else if (/^(?:AP(?:R)?\d+|OA\d+)M-\d+/.test(serial))
+        c.rarity = "ミラクル";
     }
   }
 }
@@ -639,6 +640,7 @@ function filtered(includeOwnership = true) {
         [
           c.name,
           c.code,
+          ...values(c.codeAliases),
           c.rarity,
           c.character,
           ...values(c.brand),
@@ -648,7 +650,10 @@ function filtered(includeOwnership = true) {
           .normalize("NFKC")
           .toLowerCase()
           .includes(q) ||
-        (compactQuery && normalizeCardCode(c.code).includes(compactQuery))) &&
+        (compactQuery &&
+          [c.code, ...values(c.codeAliases)].some((code) =>
+            normalizeCardCode(code).includes(compactQuery),
+          ))) &&
       Object.entries(filters).every(
         ([k, v]) => !v || values(c[k]).includes(v),
       ) &&
@@ -1975,7 +1980,7 @@ function displayRarity(c) {
       .trim()
       .toUpperCase();
     if (code.endsWith("P")) return "パラレル";
-    if (code.includes("M")) return "ミラクル";
+    if (/^(?:AP(?:R)?\d+|OA\d+)M-\d+/.test(code)) return "ミラクル";
   }
   return c.rarity || "記載なし";
 }
