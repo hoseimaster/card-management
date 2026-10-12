@@ -1891,7 +1891,7 @@ function isOfficialMarqueeCard(card) {
   // アイプリの追加サインカードは一覧に残し、ログインの紹介には使わない。
   if (
     card.game === "aipri" &&
-    (/P$/i.test(card.code || "") ||
+    (/^[A-Z0-9]+-\d+P$/i.test(card.code || "") ||
       card.parallel === true ||
       card.variant === "パラレル" ||
       /サイン|パラレル/.test(card.rarity || ""))
@@ -2192,7 +2192,7 @@ function displayRarity(c) {
       .normalize("NFKC")
       .trim()
       .toUpperCase();
-    if (code.endsWith("P")) return "パラレル";
+    if (/^[A-Z0-9]+-\d+P$/.test(code)) return "パラレル";
     if (/^(?:AP(?:R)?\d+|OA\d+)M-\d+/.test(code)) return "ミラクル";
   }
   return c.rarity || "記載なし";
@@ -2212,7 +2212,7 @@ function probabilitySummary(cards) {
       card.parallel === true ||
       card.variant === "パラレル" ||
       card.rarity === "パラレル" ||
-      (card.game === "aipri" && /P$/i.test(card.code || "")) ||
+      (card.game === "aipri" && /^[A-Z0-9]+-\d+P$/i.test(card.code || "")) ||
       /(^|:)parallel:/.test(card.id || "");
     const rarity = parallel
       ? "パラレル"
