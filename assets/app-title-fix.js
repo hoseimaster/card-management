@@ -240,7 +240,7 @@ let db,
 const favoriteStylesheet = document.createElement("link");
 favoriteStylesheet.rel = "stylesheet";
 favoriteStylesheet.href = new URL(
-  "./favorites.css?v=20261012-favorites-soft-star",
+  "./favorites.css?v=20261012-favorites-visible",
   document.currentScript?.src || location.href,
 ).href;
 document.head.append(favoriteStylesheet);
@@ -254,6 +254,10 @@ let favoritesLoadedUser = null;
 let favoritesRequest = null;
 const favoriteSaving = new Set();
 const favoriteStar = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m12 3 2.8 5.7 6.3.9-4.6 4.5 1.1 6.3-5.6-3-5.6 3 1.1-6.3L2.9 9.6l6.3-.9Z"/></svg>';
+const emptyMessage = $("empty");
+if (emptyMessage) {
+  emptyMessage.innerHTML = `<span class="empty-sparkle" aria-hidden="true">${favoriteStar}</span><strong>見つかりませんでした。</strong><span>条件を変えて探してみてください。</span>`;
+}
 function resetFavorites() {
   favoritesGeneration++;
   favoritesMutation++;
