@@ -1,0 +1,68 @@
+/* 一覧の☆は独立したボタン。所持数や未登録マークと重ねません。 */
+#cards .card { position: relative; }
+#cards .favorite-button {
+  position: absolute;
+  z-index: 3;
+  top: 7px;
+  right: 7px;
+  display: grid;
+  place-items: center;
+  width: 31px;
+  height: 31px;
+  padding: 5px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255,255,255,.94);
+  color: #978d84;
+  box-shadow: 0 2px 7px rgba(71,57,46,.12);
+  cursor: pointer;
+  transition: color .15s, background .15s, transform .15s;
+}
+.favorite-button svg, .modal-favorite svg {
+  display: block;
+  width: 21px;
+  height: 21px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linejoin: round;
+}
+#cards .favorite-button.is-favorite, .modal-favorite.is-favorite {
+  color: #b98212;
+  background: #fff5d5;
+}
+.favorite-button.is-favorite svg, .modal-favorite.is-favorite svg { fill: #f4ca55; }
+#cards .card .owned-badge { top: 44px; }
+#cards .favorite-button:disabled, .modal-favorite:disabled { opacity: .55; cursor: wait; }
+#cards .favorite-button:active, .modal-favorite:active { transform: scale(.94); }
+#cards .favorite-button:focus-visible, .modal-favorite:focus-visible { outline: 2px solid #d7ad44; outline-offset: 2px; }
+.modal-info .modal-favorite {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 7px 13px;
+  margin: 0 0 10px;
+  border: 1px solid #e4dfd5;
+  border-radius: 999px;
+  background: #fffdf7;
+  color: #71695d;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .15s, transform .15s;
+}
+.modal-info .modal-favorite[hidden] { display: none; }
+@media (hover:hover) {
+  #cards .favorite-button:hover, .modal-info .modal-favorite:hover { background: #fff0c1; color: #a77411; }
+}
+@media (max-width: 760px) and (orientation: portrait) {
+  #cards .favorite-button { width: 27px; height: 27px; top: 5px; right: 5px; padding: 4px; }
+  #cards .card .owned-badge { top: 36px; }
+  .favorite-button svg { width: 19px; height: 19px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .favorite-button, .modal-favorite { transition: none !important; }
+}
