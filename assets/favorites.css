@@ -8,9 +8,9 @@
   right: auto;
   display: grid;
   place-items: center;
-  width: 31px;
-  height: 31px;
-  padding: 5px;
+  width: 38px;
+  height: 38px;
+  padding: 4px;
   border: 0;
   border-radius: 0;
   background: transparent;
@@ -21,8 +21,8 @@
 }
 .favorite-button svg, .modal-favorite svg {
   display: block;
-  width: 21px;
-  height: 21px;
+  width: 27px;
+  height: 27px;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.7;
@@ -73,4 +73,48 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .favorite-button, .modal-favorite { transition: none !important; }
+}
+
+/* 白と黄色の縁でイラスト上でも星の形が見えるようにします。 */
+#cards .favorite-button svg, .modal-favorite svg {
+  fill: #fff;
+  stroke: #e5bf63;
+  stroke-width: 1.9;
+  paint-order: stroke fill;
+}
+#cards .favorite-button.is-favorite svg, .modal-favorite.is-favorite svg {
+  fill: #edc86e;
+  stroke: #fff;
+  stroke-width: 2.1;
+}
+#cards .favorite-button:focus-visible svg { stroke-width: 2.8; }
+#empty {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  width: 100%;
+  min-height: 140px;
+  margin: 18px auto;
+  padding: 22px 16px;
+  border: 1px dashed #eedfe5;
+  border-radius: 18px;
+  background: #fffbfc;
+  color: #897d85;
+  text-align: center;
+  line-height: 1.7;
+  white-space: normal;
+}
+#empty[hidden] { display: none; }
+#empty strong { color: #726a72; font-size: 15px; font-weight: 600; }
+#empty > span:last-child { font-size: 13px; }
+#empty .empty-sparkle { display: grid; place-items: center; margin-bottom: 3px; }
+#empty .empty-sparkle svg { width: 24px; height: 24px; fill: #faedc9; stroke: #e3c17c; stroke-width: 1.3; }
+body.game-aipri #empty { border-color: #dcebf1; background: #f9fdff; }
+@media (max-width: 760px) and (orientation: portrait) {
+  #cards .favorite-button { width: 33px; height: 33px; padding: 3px; }
+  #cards .favorite-button svg { width: 25px; height: 25px; }
+  #empty { min-height: 125px; margin: 14px auto; padding: 18px 12px; }
 }
