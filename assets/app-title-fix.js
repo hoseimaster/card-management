@@ -197,8 +197,8 @@ function renderCoordinates() {
           <button type="button" class="coordinate-card ${ownershipReady && owned.has(card.id) ? "is-owned" : "is-missing"}"
             data-coordinate-card="${esc(card.id)}" aria-label="${esc(name(card))}：${ownershipReady ? owned.has(card.id) ? "持っている" : "持っていない" : "所持状況未確認"}。詳細を開く">
             <span class="coordinate-card-image"><img src="${esc(card.front)}" alt="${esc(name(card))}" loading="lazy" decoding="async"></span>
-          </button>` : `<div class="coordinate-placeholder"><span>カード未登録</span><small>${esc(group.cardIds[index])}</small></div>`).join("")}
-        ${group.missing.map((part) => `<div class="coordinate-placeholder"><span>${esc(part)}</span><small>カード未登録<br>AP未確認</small></div>`).join("")}
+          </button>` : "").join("")}
+        
       </div>
     </article>`).join("");
 }
@@ -240,7 +240,7 @@ let db,
 const favoriteStylesheet = document.createElement("link");
 favoriteStylesheet.rel = "stylesheet";
 favoriteStylesheet.href = new URL(
-  "./favorites.css?v=20261012-favorites-visible",
+  "./favorites.css?v=20261012-card-row-refresh",
   document.currentScript?.src || location.href,
 ).href;
 document.head.append(favoriteStylesheet);
@@ -256,8 +256,28 @@ const favoriteSaving = new Set();
 const favoriteStar = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m12 3 2.8 5.7 6.3.9-4.6 4.5 1.1 6.3-5.6-3-5.6 3 1.1-6.3L2.9 9.6l6.3-.9Z"/></svg>';
 const emptyMessage = $("empty");
 if (emptyMessage) {
-  emptyMessage.innerHTML = `<span class="empty-sparkle" aria-hidden="true">${favoriteStar}</span><strong>見つかりませんでした。</strong><span>条件を変えて探してみてください。</span>`;
+  emptyMessage.innerHTML = `<strong>見つかりませんでした</strong><span>条件を変えて探してみてください</span>`;
 }
+let lastManualCatalogRefreshAt = 0;
+const catalogRefreshButton = document.createElement("button");
+catalogRefreshButton.id = "catalog-refresh";
+catalogRefreshButton.type = "button";
+catalogRefreshButton.className = "catalog-refresh";
+catalogRefreshButton.setAttribute("aria-label", "登録済みの最新カード情報を取得");
+catalogRefreshButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5M6.1 6.1A8 8 0 0 1 19.4 9M4.6 15A8 8 0 0 0 17.9 17.9"/></svg><span>更新</span>';
+$("sync-indicator").prepend(catalogRefreshButton);
+catalogRefreshButton.onclick = async () => {
+  if (!session || !db || catalogLoading || maintenanceActive) return;
+  if (lastManualCatalogRefreshAt && Date.now() - lastManualCatalogRefreshAt < 10000) {
+    toast("少し待ってから更新してください");
+    return;
+  }
+  lastManualCatalogRefreshAt = Date.now();
+  const uid = session.user.id;
+  const succeeded = await fetchCatalog(true);
+  if (session?.user.id === uid)
+    toast(succeeded ? "最新のカード情報を確認しました" : "カード情報を取得できませんでした。時間をおいてお試しください");
+};
 function resetFavorites() {
   favoritesGeneration++;
   favoritesMutation++;
@@ -745,8 +765,9 @@ function loadInitialCatalog() {
   return initialCatalogPromise;
 }
 let catalogCheckedAt = 0;
-async function fetchCatalog() {
-  if (!db || catalogLoading || Date.now() - catalogCheckedAt < 60000 || document.hidden) return;
+async function fetchCatalog(force = false) {
+  if (!db || catalogLoading || (!force && Date.now() - catalogCheckedAt < 60000) || document.hidden) return false;
+  if (force) window.PUBLIC_CATALOG_CACHE.invalidate();
   catalogLoading = true;
   updateSyncIndicator();
   try {
@@ -762,10 +783,12 @@ async function fetchCatalog() {
     applyPersonalMetadata();
     art();
     if (game) { fillFilters(); render(); }
-    if (!data.cards.length) $("auth-message").textContent = "カード情報の取り込みSQLを実行してください。";
+    if (!data.cards.length) $("auth-message").textContent = "カード情報を読み込めませんでした。時間をおいて再度お試しください。";
+    return true;
   } catch (e) {
     catalog.errors = [e.message];
     $("auth-message").textContent = e.message;
+    return false;
   } finally {
     catalogLoading = false;
     if (game) render();
@@ -1145,7 +1168,7 @@ function render() {
     .slice((page - 1) * size, page * size)
     .map(
       (c) =>
-        `<article class="card ${owned.has(c.id) ? "owned" : ""}">${favoriteButton(c)}${owned.has(c.id) ? `<span class="owned-badge">所持 ${quantityOf(c.id)}枚</span>` : ""}<button class="card-trigger" data-detail="${esc(c.id)}" aria-label="${esc(name(c))}の詳細"><span class="card-image-frame"><img data-card-image src="${esc(c.front)}" loading="lazy" decoding="async" alt="${esc(name(c))}"></span><span class="code">${esc(c.code)}</span><span class="card-meta"><span>${esc(c.character || "")}</span><span class="pill">${esc(displayRarity(c))}</span></span>${c.game === "aikatsu" && c.variant === "パラレル" ? '<span class="parallel-tag">パラレル</span>' : ""}<span class="card-name">${esc(name(c))}</span>${c.game === "aikatsu" ? `<span class="card-ap">${cardAP(c) === null ? "AP未確認" : cardAP(c).toLocaleString("ja-JP") + " AP"}</span>` : ""}${game === "aipri" ? `<span class="card-song">♪ ${esc(c.songs?.join(" ／ ") || "曲名未取得")}</span>` : ""}</button><button class="ownership-button" data-toggle="${esc(c.id)}" aria-pressed="${owned.has(c.id)}" ${!ownershipReady || saving.has(c.id) ? "disabled" : ""}>${saving.has(c.id) ? "保存中…" : owned.has(c.id) ? "✓ 持っている" : "＋ 持っていない"}</button></article>`,
+        `<article class="card ${owned.has(c.id) ? "owned" : ""}">${owned.has(c.id) ? `<span class="owned-badge">所持 ${quantityOf(c.id)}枚</span>` : ""}<button type="button" class="card-trigger card-image-trigger" data-detail="${esc(c.id)}" aria-label="${esc(name(c))}の詳細"><span class="card-image-frame"><img data-card-image src="${esc(c.front)}" loading="lazy" decoding="async" alt="${esc(name(c))}"></span></button><div class="card-code-row"><button type="button" class="card-code-link" data-detail="${esc(c.id)}" aria-label="${esc(name(c))}の詳細"><span class="code">${esc(c.code)}</span></button>${favoriteButton(c)}</div><button type="button" class="card-trigger card-text-trigger" data-detail="${esc(c.id)}" aria-label="${esc(name(c))}の詳細"><span class="card-meta"><span>${esc(c.character || "")}</span><span class="pill">${esc(displayRarity(c))}</span></span>${c.game === "aikatsu" && c.variant === "パラレル" ? '<span class="parallel-tag">パラレル</span>' : ""}<span class="card-name">${esc(name(c))}</span>${game === "aipri" ? `<span class="card-song">♪ ${esc(c.songs?.join(" ／ ") || "曲名未取得")}</span>` : ""}</button><button class="ownership-button" data-toggle="${esc(c.id)}" aria-pressed="${owned.has(c.id)}" ${!ownershipReady || saving.has(c.id) ? "disabled" : ""}>${saving.has(c.id) ? "保存中…" : owned.has(c.id) ? "✓ 持っている" : "＋ 持っていない"}</button></article>`,
     )
     .join("");
   $("empty").hidden = list.length > 0;
@@ -1158,15 +1181,10 @@ function render() {
       ? `${catalog.sync.stage}…`
       : catalog.updatedAt
         ? `カード情報の確認：${new Date(catalog.updatedAt).toLocaleString("ja-JP")}`
-        : "カード情報が未登録です";
-  const missing = all.some(
-      (c) => !c.name || (game === "aipri" && !c.songs?.length),
-    ),
-    errors = catalog.errors?.length;
-  $("data-warning").hidden = !missing && !errors;
-  $("data-warning").textContent = errors
-    ? catalog.errors[0]
-    : "未登録のカード情報があります。確認できた情報から順次追加します。";
+        : "カード情報の確認";
+  const errors = catalog.errors?.length;
+  $("data-warning").hidden = !errors;
+  $("data-warning").textContent = errors ? catalog.errors[0] : "";
   renderCoordinates();
   if (selected) updateModalOwnership();
   if (!$("probabilities").hidden) renderProbabilities();
@@ -1994,6 +2012,9 @@ function updateHeader() {
 }
 function updateSyncIndicator() {
   const busy = catalogLoading || !!catalog.sync?.running;
+  catalogRefreshButton.disabled = busy || !session || maintenanceActive;
+  catalogRefreshButton.classList.toggle("is-refreshing", busy);
+  catalogRefreshButton.setAttribute("aria-busy", String(busy));
   $("sync-indicator").classList.toggle("is-updating", busy);
   $("sync-indicator").setAttribute("aria-busy", String(busy));
   document.querySelector(".sync-spinner").hidden = !busy;
