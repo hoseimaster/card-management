@@ -236,6 +236,159 @@ let db,
   loadGeneration = 0,
   toastTimer,
   poll;
+// お気に入りは本人のテーブルからまとめて読み、定期ポーリングを行わない。
+const favoriteStylesheet = document.createElement("link");
+favoriteStylesheet.rel = "stylesheet";
+favoriteStylesheet.href = new URL(
+  "./favorites.css?v=20261012-favorites",
+  document.currentScript?.src || location.href,
+).href;
+document.head.append(favoriteStylesheet);
+let favorites = new Set();
+let favoritesReady = false;
+let favoriteFilter = false;
+let favoritesGeneration = 0;
+let favoritesMutation = 0;
+let favoritesCheckedAt = 0;
+let favoritesLoadedUser = null;
+let favoritesRequest = null;
+const favoriteSaving = new Set();
+const favoriteStar = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m12 3 2.8 5.7 6.3.9-4.6 4.5 1.1 6.3-5.6-3-5.6 3 1.1-6.3L2.9 9.6l6.3-.9Z"/></svg>';
+function resetFavorites() {
+  favoritesGeneration++;
+  favoritesMutation++;
+  favorites = new Set();
+  favoritesReady = false;
+  favoriteFilter = false;
+  favoritesCheckedAt = 0;
+  favoritesLoadedUser = null;
+  favoritesRequest = null;
+  favoriteSaving.clear();
+  updateModalFavorite();
+}
+function favoriteButton(card) {
+  const active = favoritesReady && favorites.has(card.id);
+  const label = active ? "お気に入りを解除" : "お気に入りに登録";
+  return `<button type="button" class="favorite-button ${active ? "is-favorite" : ""}" data-favorite="${esc(card.id)}" aria-label="${esc(name(card) + "：" + label)}" aria-pressed="${active}" title="${label}" ${!session || !favoritesReady || favoriteSaving.has(card.id) ? "disabled" : ""}>${favoriteStar}</button>`;
+}
+function favoriteFilterMarkup() {
+  return `<label class="favorite-filter"><span class="filter-label">お気に入り<button type="button" class="filter-clear" data-clear-favorites aria-label="お気に入りの絞り込みを解除" ${favoriteFilter ? "" : "disabled"}>解除</button></span><select id="favorite-filter" data-favorite-filter ${favoritesReady ? "" : "disabled"}><option value="all" ${favoriteFilter ? "" : "selected"}>すべて</option><option value="only" ${favoriteFilter ? "selected" : ""}>☆ お気に入りのみ</option></select></label>`;
+}
+function syncFavoriteFilter() {
+  const input = $("favorite-filter");
+  if (input) {
+    input.disabled = !favoritesReady;
+    input.value = favoriteFilter ? "only" : "all";
+  }
+  const clear = document.querySelector("[data-clear-favorites]");
+  if (clear) clear.disabled = !favoriteFilter;
+}
+function updateModalFavorite() {
+  let button = $("modal-favorite");
+  if (!button && $("modal-owned")) {
+    button = document.createElement("button");
+    button.id = "modal-favorite";
+    button.type = "button";
+    button.className = "modal-favorite";
+    button.hidden = true;
+    $("modal-owned").before(button);
+    button.onclick = () => {
+      if (selected) saveFavorite(selected.id);
+    };
+  }
+  if (!button) return;
+  const active = selected && favoritesReady && favorites.has(selected.id);
+  button.hidden = !session || !selected || !$("auth").hidden;
+  button.disabled = !favoritesReady || favoriteSaving.has(selected?.id);
+  button.classList.toggle("is-favorite", !!active);
+  button.setAttribute("aria-pressed", String(!!active));
+  button.innerHTML = favoriteStar + `<span>${favoriteSaving.has(selected?.id) ? "保存中…" : active ? "お気に入り登録済み" : "お気に入りに登録"}</span>`;
+}
+function loadFavorites(force = false) {
+  const uid = session?.user.id;
+  if (!uid || !db) return Promise.resolve();
+  if (favoritesRequest?.uid === uid) return favoritesRequest.promise;
+  if (!force && (favoriteSaving.size || (
+    favoritesReady && favoritesLoadedUser === uid && Date.now() - favoritesCheckedAt < 300000
+  ))) return Promise.resolve();
+  const request = { uid, promise: null };
+  const generation = favoritesGeneration;
+  const mutation = favoritesMutation;
+  request.promise = (async () => {
+    try {
+      const rows = [];
+      let offset = 0;
+      while (true) {
+        const result = await db.from("card_favorites")
+          .select("card_id").eq("user_id", uid).order("card_id").range(offset, offset + 999);
+        if (result.error) throw result.error;
+        rows.push(...result.data);
+        if (result.data.length < 1000) break;
+        offset += 1000;
+      }
+      if (generation !== favoritesGeneration || mutation !== favoritesMutation || uid !== session?.user.id) return;
+      favorites = new Set(rows.map(row => row.card_id));
+      favoritesReady = true;
+      favoritesLoadedUser = uid;
+      favoritesCheckedAt = Date.now();
+    } catch (error) {
+      if (generation !== favoritesGeneration || uid !== session?.user.id) return;
+      toast("お気に入りを読み込めません。お気に入り用SQLの導入・通信状態を確認してください。");
+    } finally {
+      if (favoritesRequest === request) favoritesRequest = null;
+      if (generation === favoritesGeneration && uid === session?.user.id) {
+        syncFavoriteFilter();
+        updateModalFavorite();
+        if (game) render();
+      }
+    }
+  })();
+  favoritesRequest = request;
+  return request.promise;
+}
+async function saveFavorite(id) {
+  if (!session || !favoritesReady || favoriteSaving.has(id) || maintenanceActive) return;
+  const uid = session.user.id;
+  const generation = favoritesGeneration;
+  const enabled = !favorites.has(id);
+  favoritesMutation++;
+  favoriteSaving.add(id);
+  render();
+  updateModalFavorite();
+  try {
+    const result = await db.rpc("card_album_set_favorite", { p_card_id: id, p_enabled: enabled });
+    if (result.error) throw result.error;
+    if (generation !== favoritesGeneration || uid !== session?.user.id) return;
+    if (result.data !== enabled) throw Error("お気に入りの保存結果を確認できませんでした");
+    if (enabled) favorites.add(id);
+    else favorites.delete(id);
+    favoritesCheckedAt = Date.now();
+    toast(enabled ? "お気に入りに登録しました" : "お気に入りを解除しました");
+  } catch (error) {
+    if (generation !== favoritesGeneration || uid !== session?.user.id) return;
+    // タイムアウト時だけの食い違いも、1枚分の結果を確認して解消する。
+    try {
+      const check = await db.from("card_favorites").select("card_id")
+        .eq("user_id", uid).eq("card_id", id).maybeSingle();
+      if (!check.error && generation === favoritesGeneration && uid === session?.user.id) {
+        if (check.data) favorites.add(id);
+        else favorites.delete(id);
+      }
+    } catch {}
+    if (generation === favoritesGeneration && uid === session?.user.id)
+      toast("保存結果を確認してください。" + translatedError(error));
+  } finally {
+    if (generation === favoritesGeneration && uid === session?.user.id) {
+      favoritesMutation++;
+      favoriteSaving.delete(id);
+      render();
+      updateModalFavorite();
+      const button = [...document.querySelectorAll("[data-favorite]")].find(node => node.dataset.favorite === id);
+      if (button && !$("detail").open) button.focus({ preventScroll: true });
+    }
+  }
+}
+
 let pendingSignupEmail = "";
 try {
   const saved = JSON.parse(
@@ -520,6 +673,7 @@ async function authChanged(event, next) {
   if (maintenanceActive) next = null;
   const previous = session?.user.id;
   session = next;
+  if (previous !== session?.user.id) resetFavorites();
   updateHeader();
   if (selected) updateModalOwnership();
   if (event === "PASSWORD_RECOVERY") {
@@ -566,7 +720,7 @@ async function authChanged(event, next) {
     $("account").textContent = nickname() + " のアルバム";
     loadAlbumIdentity().catch(() => {});
     if (!callbackPending && !authResultShowing) screen("selection");
-    await Promise.all([loadOwnership(), loadPersonalMetadata()]);
+    await Promise.all([loadOwnership(), loadPersonalMetadata(), loadFavorites()]);
     if (session?.user.id !== next.user.id) return;
     if (catalogFallback) await fetchCatalog();
   }
@@ -715,6 +869,7 @@ function chooseGame(g) {
   game = g;
   filters = {};
   ownershipFilter = "all";
+  favoriteFilter = false;
   page = 1;
   $("query").value = "";
   document.body.classList.toggle("game-aipri", g === "aipri");
@@ -817,7 +972,7 @@ function fillFilters() {
       if (filters[key] && !opts.includes(filters[key])) delete filters[key];
       return `<label><span class="filter-label">${label}<button type="button" class="filter-clear" data-clear-filter="${key}" aria-label="${label}の絞り込みを解除">解除</button></span><select data-filter="${key}"><option value="">すべて</option>${opts.map((v) => `<option value="${esc(v)}" ${filters[key] === v ? "selected" : ""}>${esc(v)}</option>`).join("")}</select></label>`;
     })
-    .join("");
+    .join("") + favoriteFilterMarkup();
 }
 function chooseFamily(f) {
   if (!["おねがい", "ひみつ"].includes(f)) return;
@@ -825,6 +980,7 @@ function chooseFamily(f) {
   updateHeader();
   filters = {};
   ownershipFilter = "all";
+  favoriteFilter = false;
   page = 1;
   $("query").value = "";
   setLatestSeries();
@@ -842,6 +998,7 @@ function filtered(includeOwnership = true) {
   const compactQuery = normalizeCardCode(q);
   return albumCards().filter(
     (c) =>
+      (!favoriteFilter || (favoritesReady && favorites.has(c.id))) &&
       (!q ||
         [
           c.name,
@@ -879,6 +1036,7 @@ function renderActiveFilters() {
       label: fields[game].find(([field]) => field === key)?.[1] || key,
       value,
     }));
+  if (favoriteFilter) active.push({ key: "favorites", label: "お気に入り", value: "のみ" });
   const query = $("query").value.trim();
   if (query) active.push({ key: "query", label: "検索", value: query });
   $("active-filters").innerHTML = active.length
@@ -936,6 +1094,7 @@ function renderPageNumbers(total) {
 function render() {
   if (!game) return;
   renderActiveFilters();
+  syncFavoriteFilter();
   const all = albumCards(),
     got = all.filter((c) => owned.has(c.id)).length,
     rate = all.length ? (got / all.length) * 100 : 0,
@@ -944,8 +1103,8 @@ function render() {
     baseGot = base.filter((c) => owned.has(c.id)).length;
   $("filter-summary").textContent =
     Object.values(filters).filter(Boolean).length +
-    ($("query").value.trim() ? 1 : 0)
-      ? `適用中 ${Object.values(filters).filter(Boolean).length + ($("query").value.trim() ? 1 : 0)}件`
+    ($("query").value.trim() ? 1 : 0) + (favoriteFilter ? 1 : 0)
+      ? `適用中 ${Object.values(filters).filter(Boolean).length + ($("query").value.trim() ? 1 : 0) + (favoriteFilter ? 1 : 0)}件`
       : "";
   document
     .querySelectorAll("[data-clear-filter]")
@@ -982,7 +1141,7 @@ function render() {
     .slice((page - 1) * size, page * size)
     .map(
       (c) =>
-        `<article class="card ${owned.has(c.id) ? "owned" : ""}">${incompleteCard(c) ? '<span class="incomplete-badge" role="img" aria-label="未取得のカード情報があります" title="未取得のカード情報があります">!</span>' : ""}${owned.has(c.id) ? `<span class="owned-badge">所持 ${quantityOf(c.id)}枚</span>` : ""}<button class="card-trigger" data-detail="${esc(c.id)}" aria-label="${esc(name(c))}の詳細"><span class="card-image-frame"><img data-card-image src="${esc(c.front)}" loading="lazy" decoding="async" alt="${esc(name(c))}"></span><span class="code">${esc(c.code)}</span><span class="card-meta"><span>${esc(c.character || "")}</span><span class="pill">${esc(displayRarity(c))}</span></span>${c.game === "aikatsu" && c.variant === "パラレル" ? '<span class="parallel-tag">パラレル</span>' : ""}<span class="card-name">${esc(name(c))}</span>${c.game === "aikatsu" ? `<span class="card-ap">${cardAP(c) === null ? "AP未確認" : cardAP(c).toLocaleString("ja-JP") + " AP"}</span>` : ""}${game === "aipri" ? `<span class="card-song">♪ ${esc(c.songs?.join(" ／ ") || "曲名未取得")}</span>` : ""}</button><button class="ownership-button" data-toggle="${esc(c.id)}" aria-pressed="${owned.has(c.id)}" ${!ownershipReady || saving.has(c.id) ? "disabled" : ""}>${saving.has(c.id) ? "保存中…" : owned.has(c.id) ? "✓ 持っている" : "＋ 持っていない"}</button></article>`,
+        `<article class="card ${owned.has(c.id) ? "owned" : ""}">${favoriteButton(c)}${incompleteCard(c) ? '<span class="incomplete-badge" role="img" aria-label="未取得のカード情報があります" title="未取得のカード情報があります">!</span>' : ""}${owned.has(c.id) ? `<span class="owned-badge">所持 ${quantityOf(c.id)}枚</span>` : ""}<button class="card-trigger" data-detail="${esc(c.id)}" aria-label="${esc(name(c))}の詳細"><span class="card-image-frame"><img data-card-image src="${esc(c.front)}" loading="lazy" decoding="async" alt="${esc(name(c))}"></span><span class="code">${esc(c.code)}</span><span class="card-meta"><span>${esc(c.character || "")}</span><span class="pill">${esc(displayRarity(c))}</span></span>${c.game === "aikatsu" && c.variant === "パラレル" ? '<span class="parallel-tag">パラレル</span>' : ""}<span class="card-name">${esc(name(c))}</span>${c.game === "aikatsu" ? `<span class="card-ap">${cardAP(c) === null ? "AP未確認" : cardAP(c).toLocaleString("ja-JP") + " AP"}</span>` : ""}${game === "aipri" ? `<span class="card-song">♪ ${esc(c.songs?.join(" ／ ") || "曲名未取得")}</span>` : ""}</button><button class="ownership-button" data-toggle="${esc(c.id)}" aria-pressed="${owned.has(c.id)}" ${!ownershipReady || saving.has(c.id) ? "disabled" : ""}>${saving.has(c.id) ? "保存中…" : owned.has(c.id) ? "✓ 持っている" : "＋ 持っていない"}</button></article>`,
     )
     .join("");
   $("empty").hidden = list.length > 0;
@@ -1120,6 +1279,7 @@ function showSide() {
   $("flip-prev").disabled = $("flip-next").disabled = !c.back;
 }
 function updateModalOwnership() {
+  updateModalFavorite();
   if (!selected) return;
   $("modal-owned").hidden = !session;
   $("quantity-controls").hidden = !session || !owned.has(selected.id);
@@ -1618,6 +1778,12 @@ document
   .querySelectorAll("[data-game]")
   .forEach((b) => (b.onclick = () => chooseGame(b.dataset.game)));
 $("filters").onchange = (e) => {
+  if (e.target.matches("[data-favorite-filter]")) {
+    favoriteFilter = e.target.value === "only";
+    page = 1;
+    render();
+    return;
+  }
   if (e.target.dataset.filter) {
     filters[e.target.dataset.filter] = e.target.value;
     page = 1;
@@ -1625,6 +1791,13 @@ $("filters").onchange = (e) => {
   }
 };
 $("filters").onclick = (e) => {
+  if (e.target.closest("[data-clear-favorites]")) {
+    favoriteFilter = false;
+    page = 1;
+    fillFilters();
+    render();
+    return;
+  }
   const button = e.target.closest("[data-clear-filter]");
   if (!button) return;
   delete filters[button.dataset.clearFilter];
@@ -1638,6 +1811,7 @@ $("active-filters").onclick = (event) => {
   const key = button.dataset.removeCondition;
   if (key === "query") $("query").value = "";
   else if (key === "ownership") ownershipFilter = "all";
+  else if (key === "favorites") favoriteFilter = false;
   else delete filters[key];
   page = 1;
   fillFilters();
@@ -1675,6 +1849,7 @@ document.querySelectorAll("[data-owned]").forEach(
 $("reset").onclick = () => {
   filters = {};
   ownershipFilter = "all";
+  favoriteFilter = false;
   $("query").value = "";
   page = 1;
   fillFilters();
@@ -1695,6 +1870,11 @@ $("cards").addEventListener(
   true,
 );
 $("cards").onclick = (e) => {
+  const favorite = e.target.closest("[data-favorite]");
+  if (favorite) {
+    saveFavorite(favorite.dataset.favorite);
+    return;
+  }
   const detail = e.target.closest("[data-detail]"),
     toggleButton = e.target.closest("[data-toggle]");
   if (detail) openDetail(detail.dataset.detail, detail);
@@ -1761,7 +1941,10 @@ $("modal-image").onerror = () => {
 };
 $("modal-owned").onclick = () => selected && toggle(selected.id);
 window.addEventListener("focus", () => {
-  if (session && !document.hidden) loadOwnership();
+  if (session && !document.hidden) {
+    loadOwnership();
+    loadFavorites();
+  }
 });
 
 function nickname() {
